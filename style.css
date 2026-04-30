@@ -1,0 +1,165 @@
+:root{
+  /* ダークモード用カラー定義 */
+  --fg:#e5e7eb;
+  --muted:#9ca3af;
+  --card:#020617;
+  --line:#1f2937;
+
+  /* ステータスカラー */
+  --green:#22c55e;
+  --pink:#fb7185;
+  --gray:#6b7280;
+  --yellow:#eab308;
+  --blue:#38bdf8;
+
+  --accent:#38bdf8;
+  --app-version:"s9f";
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:#020617;color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans JP",sans-serif;}
+
+/* App Bar */
+.appbar{position:sticky;top:0;z-index:20;background:#020617;border-bottom:1px solid #111827;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;gap:8px;}
+.appbar .title{font-weight:800;letter-spacing:.02em;font-size:20px;}
+.appbar .btns{display:flex;gap:8px;}
+.btn{appearance:none;border:1px solid var(--line);background:#020617;border-radius:10px;padding:8px 12px;font-weight:700;font-size:14px;color:var(--fg);cursor:pointer;white-space:nowrap;}
+.btn.primary{background:#0f172a;border-color:#1d4ed8;color:#bfdbfe;}
+.btn:hover{background:#0f172a;}
+
+/* iPhone対応：全体マージン */
+.wrap{max-width:940px;margin:8px auto;padding:0 8px 60px;}
+
+/* Hint */
+.hint{color:var(--muted);font-size:12px;margin:4px 2px;}
+
+/* Grid Gap */
+.cards{display:grid;grid-template-columns:1fr;gap:6px;}
+
+/* カードリンク */
+.cardlink{display:block;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 10px;}
+.cardlink:hover{background:#020617;border-color:#334155;}
+
+/* カード内タイトル */
+.cardlink h2 { margin: 0;
+font-size: 16px; line-height: 1.3; }
+
+/* メタ情報(チップコンテナ) */
+.meta{display:flex;gap:4px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:6px;}
+
+/* チップと数値のサイズアップ */
+.chip {
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+  background:#111827;
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:2px 6px;
+  color:var(--muted);
+  font-size:11px;
+  height:24px;
+}
+.chip span {
+  font-weight:700;
+  color:#f3f4f6;
+  font-size:13px;
+  letter-spacing: -0.5px;
+}
+
+.empty{color:var(--muted);font-size:14px;margin-top:10px;}
+
+/* モーダル：配置を下部にオフセット (親指が届きやすい位置) */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:flex-end;justify-content:center;padding-bottom:25vh;z-index:50;}
+.modal.show{display:flex;}
+.dialog{width:min(480px,90vw);background:#020617;color:#fff;border-radius:12px;padding:16px 14px;border:1px solid #111827;}
+.barwrap{height:8px;background:#020617;border-radius:999px;overflow:hidden;margin-top:10px;border:1px solid #1f2937;}
+.bar{height:100%;width:0;background:linear-gradient(90deg,#60a5fa,#a78bfa,#34d399);}
+
+/* フィルタモーダル用スタイル */
+.filter-dialog{width:min(360px,90vw);background:#020617;color:#fff;border-radius:12px;padding:20px;border:1px solid #111827;}
+.filter-dialog h3{margin:0 0 16px 0;font-size:16px;font-weight:700;}
+.filter-options{display:flex;flex-direction:column;gap:12px;margin-bottom:20px;}
+.filter-option{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#0f172a;border:1px solid var(--line);border-radius:8px;}
+.filter-option input[type="checkbox"]{width:18px;height:18px;cursor:pointer;accent-color:#38bdf8;}
+.filter-option label{font-size:14px;cursor:pointer;flex:1;}
+.filter-actions{display:flex;gap:10px;justify-content:flex-end;}
+.filter-actions .btn{min-width:80px;}
+
+/* リスト */
+.list{display:flex;flex-direction:column;gap:8px;}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:14px;background:var(--card);padding:8px;position:relative;overflow:hidden;}
+.row::before{content:"";position:absolute;top:0;bottom:0;left:0;width:4px;background:transparent;border-radius:14px 0 0 14px;}
+.row::after{content:"";position:absolute;top:0;bottom:0;right:0;width:4px;background:transparent;border-radius:0 14px 14px 0;}
+
+.row .idx{font-weight:800;color:#e5e7eb;}
+.row .leftcol{display:flex;flex-direction:column;gap:4px;align-items:flex-start;}
+.row .left-top{display:flex;align-items:center;gap:6px;}
+
+.row .mid{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.row .title{font-weight:800;font-size:15px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.2;}
+.row .sub{color:#cbd5f5;white-space:normal;line-height:1.1;font-size:14px;}
+
+.rightcol{display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+.state{padding:4px 6px;border:1px solid var(--line);border-radius:10px;background:#020617;color:var(--fg);font-size:13px;cursor:pointer;}
+
+.btn-group{display:flex;gap:4px;}
+
+/* タイヤ点検ボタン */
+.tire-btn{padding:8px 12px;font-size:13px;border-radius:10px;border:1px solid var(--line);background:#020617;color:var(--fg);cursor:pointer;font-weight:700;}
+.tire-btn:hover{background:#0f172a;}
+
+/* TMAボタン (ダークUI調和・アウトライン型) */
+.tma-btn{padding:8px 12px;font-size:13px;border-radius:10px;border:1px solid #0d9488;background:#020617;color:#2dd4bf;cursor:pointer;font-weight:700;}
+.tma-btn:hover{background:#0f172a;border-color:#14b8a6;color:#5eead4;}
+.tma-btn:disabled{background:#020617;border-color:#374151;color:#4b5563;cursor:not-allowed;}
+
+/* 背景色 */
+.bg-green{background:var(--card);border:1px solid var(--green);}
+.bg-green::before,.bg-green::after{background:var(--green);}
+.bg-pink{background:var(--card);border:1px solid var(--pink);}
+.bg-pink::before,.bg-pink::after{background:var(--pink);}
+.bg-gray{background:var(--card);border:1px solid var(--gray);}
+.bg-gray::before,.bg-gray::after{background:var(--gray);}
+.bg-yellow{background:var(--card);border:1px solid var(--yellow);}
+.bg-yellow::before,.bg-yellow::after{background:var(--yellow);}
+.bg-blue{background:var(--card);border:1px solid var(--blue);}
+.bg-blue::before,.bg-blue::after{background:var(--blue);}
+
+.ver{position:fixed;right:8px;bottom:6px;font-size:10px;color:#64748b;opacity:.7;pointer-events:none;z-index:9;}
+.datetime{font-size:12px;color:#9ca3af;line-height:1.2;text-align:left;white-space:normal;}
+
+.version-label{position:fixed;right:8px;bottom:8px;font-size:11px;color:var(--muted);opacity:.8;pointer-events:none;z-index:9999;}
+.version-label::before{content:"ver ";}
+.version-label::after{content:var(--app-version);}
+
+/* 作業モード切り替え (2行レイアウト) */
+.mode-switch-container{margin:4px 2px 12px;padding:0 2px;}
+.mode-switch-label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px;}
+.mode-switch-select{display:block;appearance:none;background:#0f172a;border:1px solid var(--line);border-radius:10px;color:var(--fg);padding:8px 32px 8px 12px;font-size:14px;font-weight:700;cursor:pointer;color-scheme:dark;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;background-size:16px;}
+
+/* チェックボックス */
+.chk{width:18px;height:18px;cursor:pointer;accent-color:#38bdf8;}
+
+/* TMA確認用カスタムモーダル */
+.tma-confirm-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  flex-direction: row; 
+}
+.tma-confirm-actions .btn {
+  flex: 1; 
+  padding: 12px 0; 
+  font-size: 16px;
+}
+.tma-confirm-actions .btn-ok {
+  background: #020617;
+  border: 1px solid #0d9488;
+  color: #2dd4bf;
+}
+.tma-confirm-actions .btn-ok:hover {
+  background: #0f172a;
+  border-color: #14b8a6;
+  color: #5eead4;
+}
