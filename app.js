@@ -5,7 +5,7 @@ var Junkai = (() => {
 
   // ===== 設定 =====
   const GAS_URL = "https://script.google.com/macros/s/AKfycbyhvDaXPbZQWkhGDbt2XkUZhwe2-xprpC9U_6s3JuPeXoD2fxAGsVXePvZasId5I1zUyQ/exec";
-  const TIRE_APP_URL = "https://rkworks2025-coder.github.io/TireCheck/";
+  const TIRE_APP_URL = "https://rkworks2025-coder.github.io/TJM_TireCheck/";
   const WORK_APP_URL = "https://rkworks2025-coder.github.io/work/";
   const LS_CONFIG_KEY = "junkai:config";
   const TIMEOUT_MS = 15000;
