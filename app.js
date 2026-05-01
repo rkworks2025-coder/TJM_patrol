@@ -279,6 +279,8 @@ var Junkai = (() => {
   function repaintCounters() {
     let overallTotal = 0, overallDone = 0, overallStop = 0, overallSkip = 0;
     appConfig.forEach(cfg => {
+      const s = (cfg.status || "").trim();
+      if (s !== "" && s !== "help") return;
       const city = cfg.name; 
       const slug = cfg.slug; 
       const arr = readCity(city);
