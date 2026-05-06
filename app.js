@@ -399,7 +399,13 @@ var Junkai = (() => {
           showProgress(true, 5);
           statusText("設定ファイル更新中…");
           await fetchRemoteConfig();
+          // 全エリアのローカルデータをクリア（stopエリアの残存データも含めて一掃）
           appConfig.forEach(cfg => localStorage.removeItem(LS_KEY(cfg.name)));
+          // stopエリアのフィルタ設定もクリア
+          appConfig.forEach(cfg => {
+            const s = (cfg.status || "").trim();
+            if (s !== "" && s !== "help") localStorage.removeItem(LS_FILTER_KEY(cfg.name));
+          });
           statusText("車両データ取得中…");
           const url = `${GAS_URL}?action=pull&_=${Date.now()}`;
           showProgress(true, 30);
@@ -438,6 +444,9 @@ var Junkai = (() => {
   async function syncInspectionAll() {
     const all = [];
     appConfig.forEach(cfg => {
+      // status が空または "help" のエリアのみプッシュ対象（stopエリアは除外）
+      const s = (cfg.status || "").trim();
+      if (s !== "" && s !== "help") return;
       const arr = readCity(cfg.name);
       for (const rec of arr) all.push(rec);
     });
