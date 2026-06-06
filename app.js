@@ -122,12 +122,43 @@ var Junkai = (() => {
     }
   });
 
-  // window.openで前面に戻った時（バックグラウンド→フォアグラウンド）にも発火
+  // A: visibilitychange
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       handleReturnActions();
     }
   });
+
+  // B: focusイベント
+  window.addEventListener('focus', () => {
+    handleReturnActions();
+  });
+
+  // C: ポーリング（500ms）- A・Bが効かない場合の最終手段
+  setInterval(() => {
+    const autoPlate = localStorage.getItem('junkai:auto_tire_plate');
+    const compPlate = localStorage.getItem('junkai:completed_plate');
+    const tireCompPlate = localStorage.getItem('junkai:tire_completed_plate');
+    if (autoPlate || compPlate || tireCompPlate) {
+      handleReturnActions();
+      // auto_tire_plateの処理（initAreaPageと同じロジック）
+      if (autoPlate) {
+        const autoStation = localStorage.getItem('junkai:auto_tire_station');
+        const tireBtns = document.querySelectorAll('[data-tire-plate]');
+        tireBtns.forEach(btn => {
+          if (btn.dataset.tirePlate === autoPlate) {
+            localStorage.removeItem('junkai:auto_tire_plate');
+            localStorage.removeItem('junkai:auto_tire_station');
+            localStorage.removeItem('junkai:auto_tire_model');
+            btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => btn.click(), 300);
+          }
+        });
+      }
+    }
+  }, 500);
+
+
 
   // ===== 設定処理 =====
   function loadLocalConfig() {
