@@ -675,6 +675,10 @@ var Junkai = (() => {
         });
         const tireBtn = document.createElement("button"); tireBtn.className = "tire-btn"; tireBtn.textContent = "点検";
         tireBtn.addEventListener("click", () => {
+          // JKS-II経由の場合のlocalStorageをクリア（ループ防止）
+          localStorage.removeItem('junkai:auto_tire_plate');
+          localStorage.removeItem('junkai:auto_tire_station');
+          localStorage.removeItem('junkai:auto_tire_model');
           const params = new URLSearchParams({ station: rec.station || "", model: rec.model || "", plate_full: rec.plate || "" });
           location.href = `${TIRE_APP_URL}?${params.toString()}`;
         });
