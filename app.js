@@ -122,6 +122,13 @@ var Junkai = (() => {
     }
   });
 
+  // window.openで前面に戻った時（バックグラウンド→フォアグラウンド）にも発火
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      handleReturnActions();
+    }
+  });
+
   // ===== 設定処理 =====
   function loadLocalConfig() {
     const cached = localStorage.getItem(LS_CONFIG_KEY);
