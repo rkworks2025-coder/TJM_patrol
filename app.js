@@ -119,6 +119,7 @@ var Junkai = (() => {
   window.addEventListener('pageshow', (e) => {
     if (e.persisted) {
       handleReturnActions();
+      handleAutoTire();
     }
   });
 
@@ -126,41 +127,85 @@ var Junkai = (() => {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       handleReturnActions();
+      handleAutoTire();
     }
   });
 
   // B: focusイベント
   window.addEventListener('focus', () => {
     handleReturnActions();
+    handleAutoTire();
   });
 
-  // C: ポーリング（500ms）- A・Bが効かない場合の最終手段
+  // C: ポーリング（500ms）- completed_plateとtire_completed_plateのみ監視（auto_tire_plateは除外）
   setInterval(() => {
-    const autoPlate = localStorage.getItem('junkai:auto_tire_plate');
     const compPlate = localStorage.getItem('junkai:completed_plate');
     const tireCompPlate = localStorage.getItem('junkai:tire_completed_plate');
-    if (autoPlate || compPlate || tireCompPlate) {
+    if (compPlate || tireCompPlate) {
       handleReturnActions();
-      // auto_tire_plateの処理（initAreaPageと同じロジック）
-      if (autoPlate) {
-        const tireBtns = document.querySelectorAll('[data-tire-plate]');
-        tireBtns.forEach(btn => {
-          if (btn.dataset.tirePlate === autoPlate) {
-            btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setTimeout(() => {
-              const ok = confirm(`【${autoPlate}】\n点検を開始しますか？`);
-              localStorage.removeItem('junkai:auto_tire_plate');
-              localStorage.removeItem('junkai:auto_tire_station');
-              localStorage.removeItem('junkai:auto_tire_model');
-              if (ok) btn.click();
-            }, 300);
-          }
-        });
-      }
     }
   }, 500);
 
+  // auto_tire_plate処理（二重発火防止フラグ付き・tireModal使用）
+  function handleAutoTire() {
+    if (window._autoTireHandling) return;
+    const autoPlate = localStorage.getItem('junkai:auto_tire_plate');
+    if (!autoPlate) return;
 
+    window._autoTireHandling = true;
+
+    let retryCount = 0;
+    const interval = setInterval(() => {
+      const tireBtns = document.querySelectorAll('[data-tire-plate]');
+      let found = false;
+      tireBtns.forEach(btn => {
+        if (btn.dataset.tirePlate === autoPlate) {
+          clearInterval(interval);
+          btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+          setTimeout(() => {
+            const tireModal    = document.getElementById('tireModal');
+            const tireModalTitle = document.getElementById('tireModalTitle');
+            const tireModalModel = document.getElementById('tireModalModel');
+            const btnOk        = document.getElementById('tireModalOk');
+            const btnCancel    = document.getElementById('tireModalCancel');
+
+            const cleanup = () => {
+              if (tireModal) tireModal.classList.remove('show');
+              localStorage.removeItem('junkai:auto_tire_plate');
+              localStorage.removeItem('junkai:auto_tire_station');
+              localStorage.removeItem('junkai:auto_tire_model');
+              window._autoTireHandling = false;
+              if (btnOk) btnOk.onclick = null;
+              if (btnCancel) btnCancel.onclick = null;
+            };
+
+            if (!tireModal || !btnOk) {
+              // モーダルがない場合はそのままクリック
+              cleanup();
+              btn.click();
+              return;
+            }
+
+            const model = localStorage.getItem('junkai:auto_tire_model') || '';
+            if (tireModalTitle) tireModalTitle.textContent = `【${autoPlate}】`;
+            if (tireModalModel) tireModalModel.textContent = model;
+            tireModal.classList.add('show');
+
+            btnOk.onclick     = () => { cleanup(); btn.click(); };
+            btnCancel.onclick = () => { cleanup(); };
+          }, 400);
+
+          found = true;
+        }
+      });
+      if (found) return;
+      if (++retryCount >= 30) {
+        clearInterval(interval);
+        window._autoTireHandling = false;
+      }
+    }, 100);
+  }
 
   // ===== 設定処理 =====
   function loadLocalConfig() {
@@ -729,6 +774,9 @@ var Junkai = (() => {
       return;
     }
     await initCity(cityKey);
+
+    // JKS-IIからの自動点検ボタンクリック
+    handleAutoTire();
   }
 
   return { initIndex, initCity, initAreaPage };
