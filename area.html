@@ -11,6 +11,7 @@
   <header class="appbar">
     <button class="btn" onclick="location.href='index.html'">← 戻る</button>
     <button id="filterBtn" class="btn">フィルタ ▼</button>
+    <button id="addVehicleBtn" class="btn">+ 車両追加</button>
     <div class="title" id="headerTitle" style="font-size:16px;">エリア詳細</div>
   </header>
 
@@ -84,6 +85,27 @@
       <div class="tma-confirm-actions">
         <button id="tireModalOk" class="btn btn-ok">OK</button>
         <button id="tireModalCancel" class="btn">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="addVehicleModal" class="modal">
+    <div class="dialog">
+      <h3 style="margin:0 0 10px 0; font-size:18px;">車両を追加</h3>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
+        <label style="font-size:13px; color:var(--muted);">ステーション名
+          <input type="text" id="addVehicleStation" style="width:100%; padding:8px; margin-top:4px; box-sizing:border-box;">
+        </label>
+        <label style="font-size:13px; color:var(--muted);">車種
+          <input type="text" id="addVehicleModel" style="width:100%; padding:8px; margin-top:4px; box-sizing:border-box;">
+        </label>
+        <label style="font-size:13px; color:var(--muted);">プレート番号
+          <input type="text" id="addVehiclePlate" style="width:100%; padding:8px; margin-top:4px; box-sizing:border-box;">
+        </label>
+      </div>
+      <div class="tma-confirm-actions">
+        <button id="addVehicleOk" class="btn btn-ok">追加</button>
+        <button id="addVehicleCancel" class="btn">キャンセル</button>
       </div>
     </div>
   </div>
