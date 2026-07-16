@@ -13,7 +13,7 @@
   --blue:#38bdf8;
 
   --accent:#38bdf8;
-  --app-version:"s9f";
+  --app-version:"s10";
 }
 
 *{box-sizing:border-box;}
@@ -21,8 +21,8 @@ html,body{margin:0;padding:0;background:#020617;color:var(--fg);font-family:-app
 
 /* App Bar */
 .appbar{position:sticky;top:0;z-index:20;background:#020617;border-bottom:1px solid #111827;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;gap:8px;}
-.appbar .title{font-weight:800;letter-spacing:.02em;font-size:20px;}
-.appbar .btns{display:flex;gap:8px;}
+.appbar .title{font-weight:800;letter-spacing:.02em;font-size:20px;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;}
+.appbar .btns{display:flex;gap:8px;flex-shrink:0;}
 .btn{appearance:none;border:1px solid var(--line);background:#020617;border-radius:10px;padding:8px 12px;font-weight:700;font-size:14px;color:var(--fg);cursor:pointer;white-space:nowrap;}
 .btn.primary{background:#0f172a;border-color:#1d4ed8;color:#bfdbfe;}
 .btn:hover{background:#0f172a;}
