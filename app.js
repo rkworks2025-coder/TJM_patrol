@@ -1,5 +1,5 @@
 // 巡回アプリ app.js
-// version: s9d (チェック操作のオリジナルモーダル化)
+// version: s10 (今回/前回 同時管理対応)
 
 var Junkai = (() => {
 
@@ -8,14 +8,26 @@ var Junkai = (() => {
   const TIRE_APP_URL = "https://rkworks2025-coder.github.io/TJM_TireCheck/";
   const WORK_APP_URL = "https://rkworks2025-coder.github.io/TJM_work/";
   const LS_CONFIG_KEY = "junkai:config";
+  const LS_ROUND_KEY = "junkai:active_round"; // "current" または "prev"
   const TIMEOUT_MS = 15000;
 
   let appConfig = []; 
 
   // ===== utility =====
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-  const LS_KEY = (c) => `junkai:city:${c}`; 
+  const LS_KEY = (c, round) => `junkai:city:${c}:${round}`;
   const LS_FILTER_KEY = (c) => `junkai:filter:${c}`;
+
+  function getActiveRound() {
+    const r = localStorage.getItem(LS_ROUND_KEY);
+    return (r === "prev") ? "prev" : "current";
+  }
+  function setActiveRound(round) {
+    localStorage.setItem(LS_ROUND_KEY, round === "prev" ? "prev" : "current");
+  }
+  function roundLabel(round) {
+    return round === "prev" ? "前回" : "今回";
+  }
 
   function getTodayJST() {
     return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Tokyo" });
@@ -310,13 +322,13 @@ var Junkai = (() => {
     });
   }
 
-  function saveCity(city, arr) {
-    localStorage.setItem(LS_KEY(city), JSON.stringify(arr));
+  function saveCity(city, arr, round) {
+    localStorage.setItem(LS_KEY(city, round), JSON.stringify(arr));
   }
 
-  function readCity(city) {
+  function readCity(city, round) {
     try {
-      const s = localStorage.getItem(LS_KEY(city));
+      const s = localStorage.getItem(LS_KEY(city, round));
       if (!s) return [];
       const a = JSON.parse(s);
       return Array.isArray(a) ? a : [];
@@ -362,13 +374,14 @@ var Junkai = (() => {
   }
 
   function repaintCounters() {
+    const round = getActiveRound();
     let overallTotal = 0, overallDone = 0, overallStop = 0, overallSkip = 0;
     appConfig.forEach(cfg => {
       const s = (cfg.status || "").trim();
       if (s !== "" && s !== "help") return;
       const city = cfg.name; 
       const slug = cfg.slug; 
-      const arr = readCity(city);
+      const arr = readCity(city, round);
       const cnt = countCity(arr);
       overallTotal += cnt.total;
       overallDone += cnt.done;
@@ -393,11 +406,11 @@ var Junkai = (() => {
     if (allTotalEl) allTotalEl.textContent = overallTotal;
     if (allRemEl)   allRemEl.textContent   = (overallTotal - overallDone - overallSkip);
     const hint = document.getElementById("overallHint");
-    if (hint) hint.textContent = overallTotal > 0 ? `総件数：${overallTotal}` : "同期してください";
+    if (hint) hint.textContent = overallTotal > 0 ? `総件数：${overallTotal}（${roundLabel(round)}）` : "同期してください";
   }
 
   async function execPullLog() {
-    const ok = confirm("【Pull】inspectionlogの内容をアプリに反映しますか？");
+    const ok = confirm("【Pull】inspectionlogの内容をアプリに反映しますか？（今回・前回とも反映されます）");
     if (!ok) return;
     try {
       showProgress(true, 10);
@@ -409,48 +422,51 @@ var Junkai = (() => {
       statusText("データ反映中...");
       const logRows = json.rows;
       let updatedCount = 0, addedCount = 0, deletedCount = 0; 
-      for (const cfg of appConfig) {
-        let cityData = readCity(cfg.name);
-        let isCityModified = false;
-        const cityLogs = logRows.filter(r => r.city === cfg.name);
-        const validPlates = cityLogs.map(r => r.plate);
-        const preCount = cityData.length;
-        cityData = cityData.filter(localRow => validPlates.includes(localRow.plate));
-        if (preCount !== cityData.length) {
-           deletedCount += (preCount - cityData.length);
-           isCityModified = true;
-        }
-        cityLogs.forEach(logRow => {
-          const targetRow = cityData.find(r => r.plate === logRow.plate);
-          let newChecked = false, newStatus = ""; 
-          const s = (logRow.status || "").toLowerCase();
-          if (s === "checked" || s === "完了" || s === "済") newChecked = true;
-          else if (s === "stop" || s === "stopped" || s === "停止") newStatus = "stop";
-          else if (s === "skip" || s === "unnecessary" || s === "不要") newStatus = "skip";
-          else if (s === "7days_rule") newStatus = "7days_rule"; 
-          let newDate = logRow.date ? logRow.date.slice(0, 10) : "";
-          if (targetRow) {
-            if (targetRow.checked !== newChecked || targetRow.status !== newStatus || targetRow.last_inspected_at !== newDate) {
-                targetRow.checked = newChecked;
-                targetRow.status = newStatus;
-                targetRow.last_inspected_at = newDate;
-                isCityModified = true;
-                updatedCount++;
-            }
-          } else {
-            const newRec = {
-              city: cfg.name, station: logRow.station, model: logRow.model, plate: logRow.plate,
-              note: "", operator:"", status: newStatus, checked: newChecked, last_inspected_at: newDate,
-              ui_index: logRow.ui_index || "", ui_index_num: 999 
-            };
-            cityData.push(normalizeRow(newRec));
-            isCityModified = true;
-            addedCount++;
+      for (const roundTag of ["current", "prev"]) {
+        const roundRows = logRows.filter(r => (r.round || "current") === roundTag);
+        for (const cfg of appConfig) {
+          let cityData = readCity(cfg.name, roundTag);
+          let isCityModified = false;
+          const cityLogs = roundRows.filter(r => r.city === cfg.name);
+          const validPlates = cityLogs.map(r => r.plate);
+          const preCount = cityData.length;
+          cityData = cityData.filter(localRow => validPlates.includes(localRow.plate));
+          if (preCount !== cityData.length) {
+             deletedCount += (preCount - cityData.length);
+             isCityModified = true;
           }
-        });
-        if (isCityModified) {
-          applyUIIndex(cfg.name, cityData);
-          saveCity(cfg.name, cityData);
+          cityLogs.forEach(logRow => {
+            const targetRow = cityData.find(r => r.plate === logRow.plate);
+            let newChecked = false, newStatus = ""; 
+            const s = (logRow.status || "").toLowerCase();
+            if (s === "checked" || s === "完了" || s === "済") newChecked = true;
+            else if (s === "stop" || s === "stopped" || s === "停止") newStatus = "stop";
+            else if (s === "skip" || s === "unnecessary" || s === "不要") newStatus = "skip";
+            else if (s === "7days_rule") newStatus = "7days_rule"; 
+            let newDate = logRow.date ? logRow.date.slice(0, 10) : "";
+            if (targetRow) {
+              if (targetRow.checked !== newChecked || targetRow.status !== newStatus || targetRow.last_inspected_at !== newDate) {
+                  targetRow.checked = newChecked;
+                  targetRow.status = newStatus;
+                  targetRow.last_inspected_at = newDate;
+                  isCityModified = true;
+                  updatedCount++;
+              }
+            } else {
+              const newRec = {
+                city: cfg.name, station: logRow.station, model: logRow.model, plate: logRow.plate,
+                note: "", operator:"", status: newStatus, checked: newChecked, last_inspected_at: newDate,
+                ui_index: logRow.ui_index || "", ui_index_num: 999 
+              };
+              cityData.push(normalizeRow(newRec));
+              isCityModified = true;
+              addedCount++;
+            }
+          });
+          if (isCityModified) {
+            applyUIIndex(cfg.name, cityData);
+            saveCity(cfg.name, cityData, roundTag);
+          }
         }
       }
       repaintCounters();
@@ -471,6 +487,14 @@ var Junkai = (() => {
       workModeSelect.value = savedMode;
       workModeSelect.addEventListener("change", (e) => localStorage.setItem("junkai:work_mode", e.target.value));
     }
+    const roundSelect = document.getElementById("roundSwitchSelect");
+    if (roundSelect) {
+      roundSelect.value = getActiveRound();
+      roundSelect.addEventListener("change", (e) => {
+        setActiveRound(e.target.value);
+        repaintCounters();
+      });
+    }
     if(document.getElementById("city-list-container")) {
        renderIndexButtons();
        repaintCounters();
@@ -479,13 +503,13 @@ var Junkai = (() => {
     const btn = document.getElementById("syncBtn");
     if (btn) {
       btn.addEventListener("click", async () => {
-        if (!confirm("【注意】初期同期を実行します。よろしいですか?")) return;
+        if (!confirm("【注意】初期同期を実行します。よろしいですか?（今回分・前回分とも作り直し、inspectionlogにも自動反映します）")) return;
         try {
           showProgress(true, 5);
           statusText("設定ファイル更新中…");
           await fetchRemoteConfig();
-          // 全エリアのローカルデータをクリア（stopエリアの残存データも含めて一掃）
-          appConfig.forEach(cfg => localStorage.removeItem(LS_KEY(cfg.name)));
+          // 今回分のローカルデータのみクリア（前回分には触れない）
+          appConfig.forEach(cfg => localStorage.removeItem(LS_KEY(cfg.name, "current")));
           // stopエリアのフィルタ設定もクリア
           appConfig.forEach(cfg => {
             const s = (cfg.status || "").trim();
@@ -508,12 +532,33 @@ var Junkai = (() => {
             const arr = buckets[cfg.name];
             if (arr && arr.length > 0) {
               applyUIIndex(cfg.name, arr);
-              saveCity(cfg.name, arr);
+              saveCity(cfg.name, arr, "current");
               wrote++;
             }
           }
+          // 前回分も同様に全体管理から作り直す。チェック済み等の状態は
+          // このあとPullを実行すればinspectionlogから復元されるため、
+          // ここでは今回分と同じく単純に作り直してよい。
+          if (Array.isArray(json.prevRows) && json.prevRows.length > 0) {
+            appConfig.forEach(cfg => localStorage.removeItem(LS_KEY(cfg.name, "prev")));
+            const prevBuckets = {};
+            appConfig.forEach(cfg => prevBuckets[cfg.name] = []);
+            for (const r of json.prevRows) {
+              const norm = normalizeRow(r);
+              if (prevBuckets[norm.city]) prevBuckets[norm.city].push(norm);
+            }
+            for (const cfg of appConfig) {
+              const arr = prevBuckets[cfg.name];
+              if (arr && arr.length > 0) {
+                applyUIIndex(cfg.name, arr);
+                saveCity(cfg.name, arr, "prev");
+              }
+            }
+          }
           renderIndexButtons(); repaintCounters();
-          showProgress(true, 100); statusText("同期完了");
+          statusText("同期データをinspectionlogへ反映中…");
+          await syncInspectionAll();
+          showProgress(true, 100); statusText("同期完了（inspectionlogにも反映済み）");
         } catch (e) {
           statusText("同期失敗：" + e.message);
         } finally { setTimeout(() => showProgress(false), 400); }
@@ -528,13 +573,15 @@ var Junkai = (() => {
 
   async function syncInspectionAll() {
     const all = [];
-    appConfig.forEach(cfg => {
-      // status が空または "help" のエリアのみプッシュ対象（stopエリアは除外）
-      const s = (cfg.status || "").trim();
-      if (s !== "" && s !== "help") return;
-      const arr = readCity(cfg.name);
-      for (const rec of arr) all.push(rec);
-    });
+    for (const round of ["current", "prev"]) {
+      appConfig.forEach(cfg => {
+        // status が空または "help" のエリアのみプッシュ対象（stopエリアは除外）
+        const s = (cfg.status || "").trim();
+        if (s !== "" && s !== "help") return;
+        const arr = readCity(cfg.name, round);
+        for (const rec of arr) all.push(Object.assign({}, rec, { round }));
+      });
+    }
     try {
       const h=document.getElementById("hint");
       if(h) h.textContent="送信中...";
@@ -556,12 +603,12 @@ var Junkai = (() => {
     return "bg-green";
   }
 
-  function persistCityRec(city, rec) {
-    const arr = readCity(city);
+  function persistCityRec(city, rec, round) {
+    const arr = readCity(city, round);
     const idx = arr.findIndex(r => r.ui_index === rec.ui_index);
     if (idx === -1) return;
     arr[idx] = rec;
-    saveCity(city, arr);
+    saveCity(city, arr, round);
     repaintCounters();
   }
 
@@ -575,10 +622,11 @@ var Junkai = (() => {
     } else {
        cityName = targetCfg.name;
     }
+    const round = getActiveRound();
     const pageTitle = document.getElementById("pageTitle");
     const headerTitle = document.getElementById("headerTitle");
-    if (pageTitle) pageTitle.textContent = targetCfg.name;
-    if (headerTitle) headerTitle.textContent = targetCfg.name;
+    if (pageTitle) pageTitle.textContent = `${targetCfg.name}（${roundLabel(round)}）`;
+    if (headerTitle) headerTitle.textContent = `${targetCfg.name}（${roundLabel(round)}）`;
 
     const list = document.getElementById("list");
     const hint = document.getElementById("hint");
@@ -594,7 +642,7 @@ var Junkai = (() => {
     }
 
     function renderList() {
-      const arr = readCity(cityName);
+      const arr = readCity(cityName, round);
       list.innerHTML = "";
       if (arr.length === 0) { hint.textContent = "データなし"; return; }
       const filteredArr = arr.filter(rec => matchesFilter(rec, currentFilter));
@@ -657,7 +705,7 @@ var Junkai = (() => {
             rec.checked = chk.checked;
             rec.last_inspected_at = chk.checked ? getTodayJST() : "";
             row.className = `row ${rowBg(rec)}`;
-            persistCityRec(cityName, rec); syncInspectionAll(); renderList(); 
+            persistCityRec(cityName, rec, round); syncInspectionAll(); renderList(); 
           }
         });
 
@@ -677,7 +725,7 @@ var Junkai = (() => {
         }
         sel.addEventListener("change", () => {
           rec.status = sel.value; row.className = `row ${rowBg(rec)}`;
-          persistCityRec(cityName, rec); syncInspectionAll(); renderList(); 
+          persistCityRec(cityName, rec, round); syncInspectionAll(); renderList(); 
         });
         const btnGroup = document.createElement("div"); btnGroup.className = "btn-group";
         const tmaBtn = document.createElement("button"); tmaBtn.className = "tma-btn"; tmaBtn.textContent = "TMA";
