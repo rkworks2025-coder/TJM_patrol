@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>巡回リスト s9b</title>
-  <link rel="stylesheet" href="style.css?v=s9b" />
+  <title>巡回リスト s10</title>
+  <link rel="stylesheet" href="style.css?v=s10" />
 </head>
 <body>
   <header class="appbar">
@@ -20,6 +20,13 @@
       <select id="workModeSelect" class="mode-switch-select">
         <option value="single">単独 (TMA自動)</option>
         <option value="continuous">連続 (TMA手動)</option>
+      </select>
+    </div>
+    <div class="mode-switch-container">
+      <div class="mode-switch-label">表示ラウンド</div>
+      <select id="roundSwitchSelect" class="mode-switch-select">
+        <option value="current">今回</option>
+        <option value="prev">前回</option>
       </select>
     </div>
     <p id="statusText" class="hint"></p>
@@ -38,7 +45,7 @@
     </section>
   </main>
   <div id="progressModal" class="modal"><div class="dialog"><h3>同期中…</h3><div class="barwrap"><div id="progressBar" class="bar"></div></div></div></div>
-  <script src="app.js?v=s9b"></script>
+  <script src="app.js?v=s10"></script>
   <script>Junkai.initIndex();</script>
 </body>
 </html>
