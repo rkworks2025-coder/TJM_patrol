@@ -75,6 +75,27 @@ var Junkai = (() => {
     throw lastErr || new Error("fetch-fail");
   }
 
+  // visibilitychangeでフォアグラウンドに戻った時に自動PULLを実行する。
+  // 前回PULLから60秒以内なら実行しない（余分なリクエストを抑制）。
+  const PULL_INTERVAL_MS = 60 * 1000;
+  let lastPullTime = 0;
+
+  async function autoPullIfNeeded() {
+    const now = Date.now();
+    if (now - lastPullTime < PULL_INTERVAL_MS) return;
+    lastPullTime = now;
+    try {
+      await executePullLog();
+      renderList();
+    } catch(e) {
+      console.warn('自動PULL失敗:', e);
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') autoPullIfNeeded();
+  });
+
   // ===== 戻り時の自動アクション (強化版) =====
   function handleReturnActions() {
     // 1. 作業管理アプリからの戻り -> 自動チェック
@@ -377,8 +398,6 @@ var Junkai = (() => {
     const round = getActiveRound();
     let overallTotal = 0, overallDone = 0, overallStop = 0, overallSkip = 0;
     appConfig.forEach(cfg => {
-      const s = (cfg.status || "").trim();
-      if (s !== "" && s !== "help") return;
       const city = cfg.name; 
       const slug = cfg.slug; 
       const arr = readCity(city, round);
@@ -415,68 +434,74 @@ var Junkai = (() => {
     try {
       showProgress(true, 10);
       statusText("ログを取得中...");
-      const url = `${GAS_URL}?action=pullLog&_=${Date.now()}`;
-      const json = await fetchJSONWithRetry(url, 2);
-      showProgress(true, 50);
-      if (!json || !json.ok || !Array.isArray(json.rows)) throw new Error("ログ取得失敗");
-      statusText("データ反映中...");
-      const logRows = json.rows;
-      let updatedCount = 0, addedCount = 0, deletedCount = 0; 
-      for (const roundTag of ["current", "prev"]) {
-        const roundRows = logRows.filter(r => (r.round || "current") === roundTag);
-        for (const cfg of appConfig) {
-          let cityData = readCity(cfg.name, roundTag);
-          let isCityModified = false;
-          const cityLogs = roundRows.filter(r => r.city === cfg.name);
-          const validPlates = cityLogs.map(r => r.plate);
-          const preCount = cityData.length;
-          cityData = cityData.filter(localRow => validPlates.includes(localRow.plate));
-          if (preCount !== cityData.length) {
-             deletedCount += (preCount - cityData.length);
-             isCityModified = true;
-          }
-          cityLogs.forEach(logRow => {
-            const targetRow = cityData.find(r => r.plate === logRow.plate);
-            let newChecked = false, newStatus = ""; 
-            const s = (logRow.status || "").toLowerCase();
-            if (s === "checked" || s === "完了" || s === "済") newChecked = true;
-            else if (s === "stop" || s === "stopped" || s === "停止") newStatus = "stop";
-            else if (s === "skip" || s === "unnecessary" || s === "不要") newStatus = "skip";
-            else if (s === "7days_rule") newStatus = "7days_rule"; 
-            let newDate = logRow.date ? logRow.date.slice(0, 10) : "";
-            if (targetRow) {
-              if (targetRow.checked !== newChecked || targetRow.status !== newStatus || targetRow.last_inspected_at !== newDate) {
-                  targetRow.checked = newChecked;
-                  targetRow.status = newStatus;
-                  targetRow.last_inspected_at = newDate;
-                  isCityModified = true;
-                  updatedCount++;
-              }
-            } else {
-              const newRec = {
-                city: cfg.name, station: logRow.station, model: logRow.model, plate: logRow.plate,
-                note: "", operator:"", status: newStatus, checked: newChecked, last_inspected_at: newDate,
-                ui_index: logRow.ui_index || "", ui_index_num: 999 
-              };
-              cityData.push(normalizeRow(newRec));
-              isCityModified = true;
-              addedCount++;
-            }
-          });
-          if (isCityModified) {
-            applyUIIndex(cfg.name, cityData);
-            saveCity(cfg.name, cityData, roundTag);
-          }
-        }
-      }
-      repaintCounters();
+      const result = await executePullLog();
       showProgress(true, 100);
-      statusText(`Pull完了 (更新:${updatedCount}, 追加:${addedCount}, 削除:${deletedCount})`);
+      statusText(`Pull完了 (更新:${result.updatedCount}, 追加:${result.addedCount}, 削除:${result.deletedCount})`);
+      renderList();
       setTimeout(() => showProgress(false), 2000);
     } catch(e) {
       statusText("Pull失敗：" + e.message);
       showProgress(false);
     }
+  }
+
+  // pullLogの共通処理。PULLボタン・PUSH後の自動PULL・起動時PULLの全てから呼ぶ。
+  async function executePullLog() {
+    const url = `${GAS_URL}?action=pullLog&_=${Date.now()}`;
+    const json = await fetchJSONWithRetry(url, 2);
+    if (!json || !json.ok || !Array.isArray(json.rows)) throw new Error("ログ取得失敗");
+    const logRows = json.rows;
+    let updatedCount = 0, addedCount = 0, deletedCount = 0;
+    for (const roundTag of ["current", "prev"]) {
+      const roundRows = logRows.filter(r => (r.round || "current") === roundTag);
+      for (const cfg of appConfig) {
+        let cityData = readCity(cfg.name, roundTag);
+        let isCityModified = false;
+        const cityLogs = roundRows.filter(r => r.city === cfg.name);
+        const validPlates = cityLogs.map(r => r.plate);
+        const preCount = cityData.length;
+        cityData = cityData.filter(localRow => validPlates.includes(localRow.plate));
+        if (preCount !== cityData.length) {
+          deletedCount += (preCount - cityData.length);
+          isCityModified = true;
+        }
+        cityLogs.forEach(logRow => {
+          const targetRow = cityData.find(r => r.plate === logRow.plate);
+          let newChecked = false, newStatus = "";
+          const s = (logRow.status || "").toLowerCase();
+          if (s === "checked" || s === "完了" || s === "済") newChecked = true;
+          else if (s === "stop" || s === "stopped" || s === "停止") newStatus = "stop";
+          else if (s === "skip" || s === "unnecessary" || s === "不要") newStatus = "skip";
+          else if (s === "7days_rule") newStatus = "7days_rule";
+          let newDate = logRow.date ? logRow.date.slice(0, 10) : "";
+          if (targetRow) {
+            if (targetRow.checked !== newChecked || targetRow.status !== newStatus || targetRow.last_inspected_at !== newDate) {
+              targetRow.checked = newChecked;
+              targetRow.status = newStatus;
+              targetRow.last_inspected_at = newDate;
+              isCityModified = true;
+              updatedCount++;
+            }
+          } else {
+            const newRec = {
+              city: cfg.name, station: logRow.station, model: logRow.model, plate: logRow.plate,
+              note: "", operator: "", status: newStatus, checked: newChecked, last_inspected_at: newDate,
+              ui_index: logRow.ui_index || "", ui_index_num: 999
+            };
+            cityData.push(normalizeRow(newRec));
+            isCityModified = true;
+            addedCount++;
+          }
+        });
+        if (isCityModified) {
+          applyUIIndex(cfg.name, cityData);
+          saveCity(cfg.name, cityData, roundTag);
+        }
+      }
+    }
+    repaintCounters();
+    lastPullTime = Date.now();
+    return { updatedCount, addedCount, deletedCount };
   }
 
   async function initIndex() {
@@ -632,6 +657,13 @@ var Junkai = (() => {
       const h=document.getElementById("hint");
       if(h) h.textContent="送信中...";
       await fetch(`${GAS_URL}?action=syncInspection`, { method: "POST", body: JSON.stringify({ data: all }) });
+      // PUSH完了後にサイレントPULLを実行し、GAS側の最新判定（7days_rule等）を反映する
+      try {
+        await executePullLog();
+        renderList();
+      } catch(e) {
+        console.warn('自動PULL失敗:', e);
+      }
       if(h) {
         h.textContent="送信成功";
         setTimeout(()=>h.textContent=`件数：${all.length}`, 1500);
@@ -908,6 +940,19 @@ var Junkai = (() => {
       return;
     }
     await initCity(cityKey);
+
+    // セッション開始時に1回だけ自動PULLを実行する。
+    // ポータル版との切り替え時に最新のinspectionlogを反映するため。
+    // sessionStorageでフラグ管理し、同セッション内での重複実行を防ぐ。
+    if (!sessionStorage.getItem('junkai:session_pulled')) {
+      sessionStorage.setItem('junkai:session_pulled', '1');
+      try {
+        await executePullLog();
+        renderList();
+      } catch(e) {
+        console.warn('起動時自動PULL失敗:', e);
+      }
+    }
 
     // JKS-IIからの自動点検ボタンクリック
     handleAutoTire();
