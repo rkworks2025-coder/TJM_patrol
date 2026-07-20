@@ -75,26 +75,25 @@ var Junkai = (() => {
     throw lastErr || new Error("fetch-fail");
   }
 
-  // visibilitychangeでフォアグラウンドに戻った時に自動PULLを実行する。
-  // 前回PULLから60秒以内なら実行しない（余分なリクエストを抑制）。
-  const PULL_INTERVAL_MS = 60 * 1000;
+  // フォアグラウンド復帰検知はiOSのStandalone/WebViewでは不安定なため、
+  // renderList()の呼び出し時に経過時間をチェックして自動PULLする方式にする。
+  const PULL_INTERVAL_MS = 10 * 1000;
   let lastPullTime = 0;
+  let _pullInProgress = false;
 
   async function autoPullIfNeeded() {
+    if (_pullInProgress) return;
     const now = Date.now();
     if (now - lastPullTime < PULL_INTERVAL_MS) return;
-    lastPullTime = now;
+    _pullInProgress = true;
     try {
       await executePullLog();
-      renderList();
     } catch(e) {
       console.warn('自動PULL失敗:', e);
+    } finally {
+      _pullInProgress = false;
     }
   }
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') autoPullIfNeeded();
-  });
 
   // ===== 戻り時の自動アクション (強化版) =====
   function handleReturnActions() {
@@ -435,9 +434,10 @@ var Junkai = (() => {
       showProgress(true, 10);
       statusText("ログを取得中...");
       const result = await executePullLog();
+      // PULL完了後、lastPullTimeをリセットして次回エリアページ表示時に即反映
+      lastPullTime = 0;
       showProgress(true, 100);
       statusText(`Pull完了 (更新:${result.updatedCount}, 追加:${result.addedCount}, 削除:${result.deletedCount})`);
-      renderList();
       setTimeout(() => showProgress(false), 2000);
     } catch(e) {
       statusText("Pull失敗：" + e.message);
@@ -660,7 +660,9 @@ var Junkai = (() => {
       // PUSH完了後にサイレントPULLを実行し、GAS側の最新判定（7days_rule等）を反映する
       try {
         await executePullLog();
-        renderList();
+        // PULL完了後、lastPullTimeをリセットする。
+        // これにより、別の版に切り替えた時に即座に自動PULLが走る。
+        lastPullTime = 0;
       } catch(e) {
         console.warn('自動PULL失敗:', e);
       }
@@ -720,6 +722,12 @@ var Junkai = (() => {
     }
 
     function renderList() {
+      // 前回PULLから時間が経過していれば自動PULLを実行し、完了後に再描画する
+      // ただしPULL中も既存キャッシュで先に描画してフリーズを防ぐ
+      if (Date.now() - lastPullTime >= PULL_INTERVAL_MS && !_pullInProgress) {
+        autoPullIfNeeded().then(() => renderList());
+        // PULLを待たずに現在のキャッシュで先に描画する（fall through）
+      }
       const arr = readCity(cityName, round);
       list.innerHTML = "";
       if (arr.length === 0) { hint.textContent = "データなし"; return; }
