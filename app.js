@@ -76,7 +76,11 @@ var Junkai = (() => {
   }
 
   // エリアページがフォアグラウンドに戻った時にPULLを実行する。
+  // ただしPUSH中（syncInspectionAll実行中）はPULLをブロックする。
+  let _pushInProgress = false;
+
   async function pullOnVisible() {
+    if (_pushInProgress) return;
     try {
       await executePullLog();
     } catch(e) {
@@ -634,6 +638,7 @@ var Junkai = (() => {
   }
 
   async function syncInspectionAll() {
+    _pushInProgress = true;
     const all = [];
     for (const round of ["current", "prev"]) {
       appConfig.forEach(cfg => {
@@ -654,6 +659,8 @@ var Junkai = (() => {
       }
     } catch (e) {
       if(document.getElementById("hint")) document.getElementById("hint").textContent="送信失敗";
+    } finally {
+      _pushInProgress = false;
     }
   }
 
