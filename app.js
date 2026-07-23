@@ -662,7 +662,6 @@ var Junkai = (() => {
 
   async function initCity(cityKey) {
     loadLocalConfig();
-    try { await executePullLog(); } catch(e) { console.warn('initCity PULL失敗:', e); }
     let cityName = cityKey;
     let targetCfg = appConfig.find(c => c.name === cityKey) || appConfig.find(c => c.slug === cityKey);
     if (!targetCfg) {
