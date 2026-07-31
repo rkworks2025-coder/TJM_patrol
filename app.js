@@ -505,6 +505,19 @@ var Junkai = (() => {
     if (btn) {
       btn.addEventListener("click", async () => {
         if (!confirm("【注意】初期同期を実行します。よろしいですか?（今回分・前回分とも作り直し、inspectionlogにも自動反映します）")) return;
+        // 押下前の状態を退避（通信失敗時のロールバック用）
+        const backupKeys = [];
+        appConfig.forEach(cfg => {
+          backupKeys.push(LS_KEY(cfg.name, "current"), LS_KEY(cfg.name, "prev"), LS_FILTER_KEY(cfg.name));
+        });
+        const backup = {};
+        backupKeys.forEach(k => { backup[k] = localStorage.getItem(k); });
+        function rollback() {
+          backupKeys.forEach(k => {
+            const v = backup[k];
+            if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v);
+          });
+        }
         try {
           showProgress(true, 5);
           statusText("設定ファイル更新中…");
@@ -558,12 +571,15 @@ var Junkai = (() => {
           }
           renderIndexButtons(); repaintCounters();
           statusText("サーバー側の作業記録を復元中…");
-          await mergeLogNonDestructive();
+          const mergeOk = await mergeLogNonDestructive();
+          if (!mergeOk) throw new Error("作業記録の復元に失敗しました");
           statusText("同期データをinspectionlogへ反映中…");
           await syncInspectionAll();
           showProgress(true, 100); statusText("同期完了（inspectionlogにも反映済み）");
         } catch (e) {
-          statusText("同期失敗：" + e.message);
+          rollback();
+          renderIndexButtons(); repaintCounters();
+          statusText("通信失敗：変更前の状態に戻しました（" + e.message + "）");
         } finally { setTimeout(() => showProgress(false), 400); }
       });
     }
@@ -584,7 +600,7 @@ var Junkai = (() => {
     try {
       const url = `${GAS_URL}?action=pullLog&_=${Date.now()}`;
       const json = await fetchJSONWithRetry(url, 2);
-      if (!json || !json.ok || !Array.isArray(json.rows)) return;
+      if (!json || !json.ok || !Array.isArray(json.rows)) return false;
       const logRows = json.rows;
       for (const roundTag of ["current", "prev"]) {
         const roundRows = logRows.filter(r => (r.round || "current") === roundTag);
@@ -613,8 +629,10 @@ var Junkai = (() => {
           if (isCityModified) saveCity(cfg.name, cityData, roundTag);
         }
       }
+      return true;
     } catch (e) {
       console.warn("mergeLogNonDestructive failed", e);
+      return false;
     }
   }
 
@@ -633,7 +651,6 @@ var Junkai = (() => {
       const h=document.getElementById("hint");
       if(h) h.textContent="送信中...";
       await fetch(`${GAS_URL}?action=syncInspection`, { method: "POST", body: JSON.stringify({ data: all }) });
-      try { await executePullLog(); } catch(e) { console.warn('自動PULL失敗:', e); }
       if(h) {
         h.textContent="送信成功";
         setTimeout(()=>h.textContent=`件数：${all.length}`, 1500);
