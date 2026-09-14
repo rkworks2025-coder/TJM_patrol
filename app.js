@@ -12,6 +12,20 @@ var Junkai = (() => {
   const TIMEOUT_MS = 15000;
 
   let appConfig = []; 
+  let stationNameCache = null; // 「+ 車両追加」の候補用（一度取得したらセッション中はキャッシュ）
+
+  // 「+ 車両追加」モーダル用に、ステーションIDメインSSの station_name 一覧を取得する。
+  // 取得済みならキャッシュをそのまま返す。失敗時は空配列（＝候補なし、手入力は可能なまま）。
+  async function fetchStationNames() {
+    if (stationNameCache) return stationNameCache;
+    try {
+      const json = await fetch(`${GAS_URL}?action=stationList`).then(r => r.json());
+      stationNameCache = Array.isArray(json.stations) ? json.stations : [];
+    } catch (e) {
+      stationNameCache = [];
+    }
+    return stationNameCache;
+  }
 
   // ===== utility =====
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -878,10 +892,41 @@ var Junkai = (() => {
     const addVehicleBtn = document.getElementById("addVehicleBtn");
     const addVehicleModal = document.getElementById("addVehicleModal");
     if (addVehicleBtn && addVehicleModal) {
+      const stationInput = document.getElementById("addVehicleStation");
+      const stationSuggest = document.getElementById("addVehicleStationSuggest");
+
+      function renderStationSuggest(list) {
+        stationSuggest.innerHTML = "";
+        list.slice(0, 5).forEach(name => {
+          const row = document.createElement("div");
+          row.textContent = name;
+          row.style.cssText = "padding:8px 10px; font-size:14px; cursor:pointer; border-top:1px solid var(--border,#333); background:var(--panel,#1c1c1c);";
+          row.addEventListener("mousedown", (ev) => {
+            ev.preventDefault();
+            stationInput.value = name;
+            stationSuggest.innerHTML = "";
+          });
+          stationSuggest.appendChild(row);
+        });
+      }
+      if (stationInput && stationSuggest) {
+        stationInput.addEventListener("input", async () => {
+          const q = stationInput.value.trim();
+          if (!q) { stationSuggest.innerHTML = ""; return; }
+          const names = await fetchStationNames();
+          renderStationSuggest(names.filter(n => n.includes(q)));
+        });
+        stationInput.addEventListener("blur", () => {
+          setTimeout(() => { stationSuggest.innerHTML = ""; }, 150);
+        });
+      }
+
       addVehicleBtn.addEventListener("click", () => {
         document.getElementById("addVehicleStation").value = "";
         document.getElementById("addVehicleModel").value = "";
         document.getElementById("addVehiclePlate").value = "";
+        if (stationSuggest) stationSuggest.innerHTML = "";
+        fetchStationNames(); // 候補を先読みしておく（入力開始時にはキャッシュ済みにする狙い）
         addVehicleModal.classList.add("show");
       });
       const addVehicleCancel = document.getElementById("addVehicleCancel");

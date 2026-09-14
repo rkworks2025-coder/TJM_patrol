@@ -109,8 +109,9 @@
       <h3 style="margin:0 0 10px 0; font-size:18px;">車両を追加</h3>
       <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
         <label style="font-size:13px; color:var(--muted);">ステーション名
-          <input type="text" id="addVehicleStation" style="width:100%; padding:8px; margin-top:4px; box-sizing:border-box; font-size:16px;">
+          <input type="text" id="addVehicleStation" autocomplete="off" style="width:100%; padding:8px; margin-top:4px; box-sizing:border-box; font-size:16px;">
         </label>
+        <div id="addVehicleStationSuggest"></div>
         <label style="font-size:13px; color:var(--muted);">車種
           <input type="text" id="addVehicleModel" style="width:100%; padding:8px; margin-top:4px; box-sizing:border-box; font-size:16px;">
         </label>
