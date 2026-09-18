@@ -846,6 +846,7 @@ var Junkai = (() => {
           }
         });
         const tireBtn = document.createElement("button"); tireBtn.className = "tire-btn"; tireBtn.textContent = "点検";
+        tireBtn.dataset.tirePlate = rec.plate; // JKS-IIからの自動検出(handleAutoTire)用
         tireBtn.addEventListener("click", () => {
           // JKS-II経由の場合のlocalStorageをクリア（ループ防止）
           localStorage.removeItem('junkai:auto_tire_plate');
